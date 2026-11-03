@@ -22,7 +22,16 @@ if (!supported.includes(host)) {
 } else {
   const child = spawn(
     'bare-build',
-    ['--name', 'speedtest-p2p', '--standalone', '--host', host, '--out', `./out/${host}`, 'bin.mjs'],
+    [
+      '--name',
+      'speedtest-p2p',
+      '--standalone',
+      '--host',
+      host,
+      '--out',
+      `./out/${host}`,
+      'bin.mjs'
+    ],
     { stdio: 'inherit' }
   )
   child.on('error', (err) => {

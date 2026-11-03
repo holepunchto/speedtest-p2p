@@ -23,7 +23,8 @@ module.exports = async function run(cmd) {
     return
   }
 
-  if (!tty.isTTY(0) || !tty.isTTY(1)) throw new Error('speedtest-p2p requires an interactive terminal')
+  if (!tty.isTTY(0) || !tty.isTTY(1))
+    throw new Error('speedtest-p2p requires an interactive terminal')
 
   const lobby = cmd.flags.lobby
   const topic = lobby === undefined ? undefined : createTopic(lobby)
