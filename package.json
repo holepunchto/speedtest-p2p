@@ -63,8 +63,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/AndreiRegiani/speedtest-p2p.git"
+    "url": "https://github.com/holepunchto/speedtest-p2p.git"
   },
-  "author": "Andrei Regiani",
+  "author": "Holepunch",
   "license": "Apache-2.0"
 }
