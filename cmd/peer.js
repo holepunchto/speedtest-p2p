@@ -271,7 +271,7 @@ class PeerModel {
       return ['', '  Quitting...', ...Array(Math.max(0, this.screenHeight - 2)).fill('')].join('\n')
     }
 
-    const title = style().bold(true).foreground(DOWNLOAD).render('🍐 SPEEDTEST P2P')
+    const title = style().bold(true).foreground(DOWNLOAD).render('🍐 SPEEDTEST-P2P')
     const lobby = `${style().foreground('white').render('Lobby:')} ${style().foreground('gray').render(this.lobby)}`
     const separator = style().foreground('gray').render('·')
     const phase = this._phase()

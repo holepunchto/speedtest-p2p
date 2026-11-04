@@ -403,7 +403,7 @@ test('the peer table renders, truncates, and scrolls', (t) => {
   t.is(model.peerTable.columns[0].title, '›↑↓Peer')
   t.is(model.serverLogTable.columns[0].title, ' LEECHERS')
   t.is(view.length, 18)
-  const titleRow = view.find((row) => row.includes('🍐 SPEEDTEST P2P'))
+  const titleRow = view.find((row) => row.includes('🍐 SPEEDTEST-P2P'))
   t.ok(titleRow.includes('Lobby:') && titleRow.includes('PUBLIC'))
   t.ok(titleRow.includes('\x1b[90m·\x1b[0m'))
   t.ok(view.join('\n').includes('Peer'))
