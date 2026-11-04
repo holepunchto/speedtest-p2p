@@ -1,0 +1,25 @@
+'use strict'
+
+const { bail, command, flag, summary } = require('paparam')
+
+const peer = require('./peer')
+const pkg = require('../package.json')
+
+const cli = command(
+  'speedtest-p2p',
+  summary(pkg.description),
+  flag('--lobby <name>', 'Private lobby name'),
+  flag('--relay <public-key>', 'Use a blind relay for peer connections'),
+  flag('--version|-v', 'Show version'),
+  bail(({ err, reason }) => onerror(err || reason)),
+  peer
+)
+
+module.exports = function main(argv = Bare.argv.slice(2)) {
+  return cli.parse(argv)
+}
+
+function onerror(err) {
+  console.error(err.message || err)
+  Bare.exitCode = 1
+}

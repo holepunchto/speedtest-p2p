@@ -1,0 +1,543 @@
+'use strict'
+
+const tty = require('bare-tty')
+const { Program, key, progress, quit, spinner, style, table } = require('bare-tui')
+
+const Peer = require('../lib/peer')
+const { DURATION, PHASE_DURATION } = require('../lib/constants')
+const createTopic = require('./topic')
+const pkg = require('../package.json')
+
+const DOWNLOAD = '#00D9A3'
+const UPLOAD = '#54A7FF'
+const LATENCY = '#C792EA'
+const BORDER = 'gray'
+const DOWNLOAD_BAR = ['#007A5A', DOWNLOAD]
+const UPLOAD_BAR = ['#315F9F', UPLOAD]
+const MAX_SERVER_LOGS = 100
+const WHOAMI_VALUE_WIDTH = 15
+
+module.exports = async function run(cmd) {
+  if (cmd.flags.version) {
+    console.log(pkg.version)
+    return
+  }
+
+  if (!tty.isTTY(0) || !tty.isTTY(1)) {
+    throw new Error('speedtest-p2p requires an interactive terminal')
+  }
+
+  const lobby = cmd.flags.lobby
+  const topic = lobby === undefined ? undefined : createTopic(lobby)
+  const speedTest = new Peer(topic, { relayThrough: cmd.flags.relay })
+  await runTui(speedTest, lobby === undefined ? 'PUBLIC' : formatLobby(lobby))
+}
+
+class PeerModel {
+  constructor(speedTest, lobby) {
+    this.speedTest = speedTest
+    this.lobby = lobby
+    this.snapshot = { phase: 'opening', elapsed: 0, publicIP: null, serving: [], peers: [] }
+    this.result = null
+    this.error = null
+    this.exiting = false
+    this.narrow = false
+    this.showLeechers = true
+    this.activeTable = 'peer'
+    this.maxPeerTableHeight = 10
+    this.maxServerLogTableHeight = 10
+    this.serverLogs = []
+    this.spinner = spinner.create({ frames: spinner.points, fps: 6 })
+    this.servingSpinner = spinner.create({ frames: spinner.dots, fps: 8 })
+    this.bar = progress.create({
+      width: 50,
+      full: '━',
+      empty: '━',
+      gradient: DOWNLOAD_BAR
+    })
+    this.peerTable = table.create({ height: 1 })
+    this.serverLogTable = table.create({ height: 1 })
+    this._resize(80, 24)
+  }
+
+  init() {
+    return [
+      this.spinner.init(),
+      this.servingSpinner.init(),
+      async () => {
+        try {
+          await this.speedTest.open()
+          return { type: 'open' }
+        } catch (error) {
+          return { type: 'error', error }
+        }
+      }
+    ]
+  }
+
+  update(msg) {
+    if (msg.type === 'resize') {
+      this._resize(msg.width, msg.height)
+      return [this, null]
+    }
+
+    if (msg.type === 'state') {
+      this.snapshot = msg.snapshot
+      this._rows()
+      return [this, null]
+    }
+
+    if (msg.type === 'served') {
+      this.serverLogs.push({
+        timestamp: msg.entry.timestamp,
+        ip: msg.entry.ip,
+        port: msg.entry.port
+      })
+      if (this.serverLogs.length > MAX_SERVER_LOGS) this.serverLogs.shift()
+      this._rows()
+      this.serverLogTable.offset = Math.max(
+        0,
+        this.serverLogTable.rows.length - this.serverLogTable.height
+      )
+      return [this, null]
+    }
+
+    if (msg.type === 'spinner.tick') {
+      const [spinner, cmd] = this.spinner.update(msg)
+      this.spinner = spinner
+      const [servingSpinner, servingCmd] = this.servingSpinner.update(msg)
+      this.servingSpinner = servingSpinner
+      if (this.snapshot.serving.length) this._rows()
+      return [this, this.exiting ? null : cmd || servingCmd]
+    }
+
+    if (msg.type === 'open') {
+      this.error = null
+      return [this, null]
+    }
+
+    if (msg.type === 'done') {
+      this.result = msg.result
+      this.error = null
+      this._rows()
+      return [this, null]
+    }
+
+    if (msg.type === 'error') {
+      this.error = msg.error
+      return [this, null]
+    }
+
+    if (key.matches(msg, 'q', 'ctrl+c')) return this._quit()
+
+    if (
+      key.matches(msg, 'enter') &&
+      this.snapshot.phase === 'idle' &&
+      this.snapshot.peers.some((peer) => peer.available)
+    ) {
+      this.result = null
+      this.error = null
+      return [
+        this,
+        async () => {
+          try {
+            return { type: 'done', result: await this.speedTest.test() }
+          } catch (error) {
+            return { type: 'error', error }
+          }
+        }
+      ]
+    }
+
+    if (msg.type === 'key') {
+      if (key.matches(msg, 'tab') && this.showLeechers) {
+        this.activeTable = this.activeTable === 'peer' ? 'server' : 'peer'
+        return [this, null]
+      }
+
+      const active = this.activeTable === 'peer' ? this.peerTable : this.serverLogTable
+      const maxOffset = Math.max(0, active.rows.length - active.height)
+      if (key.matches(msg, 'up', 'k')) {
+        active.offset = Math.max(0, active.offset - 1)
+      }
+      if (key.matches(msg, 'down', 'j')) {
+        active.offset = Math.min(maxOffset, active.offset + 1)
+      }
+      if (key.matches(msg, 'pageup')) {
+        active.offset = Math.max(0, active.offset - active.height)
+      }
+      if (key.matches(msg, 'pagedown')) {
+        active.offset = Math.min(maxOffset, active.offset + active.height)
+      }
+      if (key.matches(msg, 'home')) active.offset = 0
+      if (key.matches(msg, 'end')) active.offset = maxOffset
+    }
+
+    return [this, null]
+  }
+
+  _quit() {
+    if (this.exiting) return [this, null]
+    this.exiting = true
+    return [
+      this,
+      async () => {
+        await this.speedTest.close()
+        return quit()
+      }
+    ]
+  }
+
+  _rows() {
+    const downloadElapsed = downloadSeconds(this.snapshot.elapsed)
+    const idle = this.snapshot.phase === 'idle'
+    const peerRows = this.snapshot.peers
+      .slice()
+      .sort((a, b) => (a.latency || Infinity) - (b.latency || Infinity))
+      .map((peer) => {
+        const downloadSpeed = idle ? peer.downloadSpeed : peer.downloaded / downloadElapsed
+        const row = [
+          ` ${formatAddress(peer)}`,
+          style().foreground(LATENCY).render(formatLatency(peer.latency)),
+          style().foreground(DOWNLOAD).render(formatSpeed(downloadSpeed)),
+          style().foreground(UPLOAD).render(formatSpeed(peer.uploadSpeed))
+        ]
+        if (this.narrow) return [row[0], row[2], row[3]]
+        return row
+      })
+
+    if (!peerRows.length) peerRows.push(this.narrow ? [' -', '', ''] : [' -', '', '', ''])
+    const serverLogRows = [
+      ...this.serverLogs.map((entry) => [
+        ` ${style()
+          .foreground('gray')
+          .render(`${formatTime(entry.timestamp)} →`)} ${formatAddress(entry)}`
+      ]),
+      ...this.snapshot.serving.map((entry) => {
+        const time = style().foreground(DOWNLOAD).render(formatTime(entry.timestamp))
+        const arrow = style().foreground('gray').render('→')
+        const address = style()
+          .foreground(DOWNLOAD)
+          .render(`${formatAddress(entry, false)} ${this.servingSpinner.view()}`)
+        return [` ${time} ${arrow} ${address}`]
+      })
+    ]
+
+    if (!serverLogRows.length) serverLogRows.push([' -'])
+
+    setTableRows(this.peerTable, peerRows, this.maxPeerTableHeight)
+    setTableRows(this.serverLogTable, serverLogRows, this.maxServerLogTableHeight)
+  }
+
+  _resize(screenWidth = 80, screenHeight = 24) {
+    const showLeechers = screenWidth >= 104
+    const tablesWidth = Math.max(44, screenWidth - (showLeechers ? 6 : 2))
+    const serverLogWidth = Math.max(21, Math.floor(tablesWidth * 0.4))
+    const peerWidth = tablesWidth - serverLogWidth
+    const fullPeerWidth = showLeechers ? peerWidth : tablesWidth
+    const fullPeerColumnWidth = Math.max(23, Math.min(43, Math.floor(fullPeerWidth * 0.3)))
+    const fullRemainingWidth = fullPeerWidth - fullPeerColumnWidth - 3
+    const fullLatencyWidth = Math.max(8, Math.floor(fullRemainingWidth * 0.25))
+    const fullDownloadWidth = Math.floor((fullRemainingWidth - fullLatencyWidth) / 2)
+    const fullUploadWidth = fullRemainingWidth - fullLatencyWidth - fullDownloadWidth
+    this.narrow = fullPeerWidth < 51
+    this.screenWidth = screenWidth
+    this.screenHeight = screenHeight
+    this.maxPeerTableHeight = Math.max(1, screenHeight - 17)
+    this.maxServerLogTableHeight = Math.max(1, screenHeight - 9)
+    this.bar.setWidth(Math.min(50, Math.max(1, fullPeerWidth - 1)))
+    this.peerTable.setColumns(
+      this.narrow
+        ? [
+            { title: ' Peer', width: fullPeerWidth - 22 },
+            { title: '↓ Download', width: 10 },
+            { title: '↑ Upload', width: 10 }
+          ]
+        : [
+            { title: ' Peer', width: fullPeerColumnWidth },
+            { title: 'Latency', width: fullLatencyWidth },
+            { title: '↓ Download', width: fullDownloadWidth },
+            { title: '↑ Upload', width: fullUploadWidth }
+          ]
+    )
+    this.serverLogTable.setColumns([{ title: ' LEECHERS', width: serverLogWidth }])
+    if (!showLeechers && this.activeTable === 'server') this.activeTable = 'peer'
+    this.showLeechers = showLeechers
+    this._rows()
+  }
+
+  view() {
+    if (this.exiting) {
+      return ['', '  Quitting...', ...Array(Math.max(0, this.screenHeight - 2)).fill('')].join('\n')
+    }
+
+    const title = style().bold(true).foreground(DOWNLOAD).render('🍐 SPEEDTEST-P2P')
+    const lobby = `${style().foreground('white').render('Lobby:')} ${style().foreground('gray').render(this.lobby)}`
+    const separator = style().foreground('gray').render('·')
+    const phase = this._phase()
+    this.peerTable.columns[0].title = this._tableTitle(
+      'Peer',
+      this.peerTable,
+      this.activeTable === 'peer'
+    )
+    this.serverLogTable.columns[0].title = this._tableTitle(
+      'LEECHERS',
+      this.serverLogTable,
+      this.activeTable === 'server',
+      false
+    )
+    this.bar.gradient = this.snapshot.phase === 'upload' ? UPLOAD_BAR : DOWNLOAD_BAR
+    const progressView = this.bar.view(this.result ? 1 : this.snapshot.elapsed / DURATION)
+    const peerTable = style()
+      .border(style.borders.rounded)
+      .borderForeground(BORDER)
+      .render(this.peerTable.view())
+    const columnSpacing = Math.max(0, Math.min(4, this.screenHeight - 14))
+    const resultViewLines = this._resultView()
+      .split('\n')
+      .map((line) => `   ${line}`)
+    const peerColumn = [
+      peerTable,
+      ...Array(Math.ceil(columnSpacing / 2)).fill(''),
+      `   ${phase}`,
+      `   ${progressView}`,
+      ...resultViewLines,
+      ...Array(Math.floor(columnSpacing / 2)).fill(''),
+      `   ${this._actions()}`
+    ].join('\n')
+    let body
+    if (this.showLeechers) {
+      const serverLogTable = style().margin(1, 0, 1).render(this._serverLogTableView())
+      body = style()
+        .margin(0, 1, 0, 1)
+        .render(style.joinHorizontal(style.position.top, peerColumn, '  ', serverLogTable))
+    } else {
+      body = peerColumn
+    }
+
+    const frameSpacing = Math.max(0, Math.min(3, this.screenHeight - 11))
+    const content = [
+      ...(frameSpacing >= 2 ? [''] : []),
+      ...(this.screenHeight >= 11 ? [`  ${title} ${separator} ${lobby}`] : []),
+      ...(frameSpacing >= 1 ? [''] : []),
+      body
+    ]
+    const contentHeight = content.join('\n').split('\n').length
+    const trailingLines = frameSpacing >= 3 ? [''] : []
+    const padding = Math.max(0, this.screenHeight - contentHeight - trailingLines.length - 1)
+    const lines = [
+      ...content,
+      ...Array.from({ length: padding }, () => ''),
+      `  ${this._footer()}`,
+      ...trailingLines
+    ]
+      .join('\n')
+      .split('\n')
+      .slice(-this.screenHeight)
+    return lines.map((line) => style.truncate(line, this.screenWidth)).join('\n')
+  }
+
+  _phase() {
+    if (this.error) return style().foreground('red').render(this.error.message)
+    if (this.snapshot.phase === 'opening') {
+      const activity = style().foreground(DOWNLOAD).render(this.spinner.view())
+      return `${activity} Joining lobby`
+    }
+    if (this.snapshot.phase === 'verifying') {
+      const activity = style().foreground('yellow').render(this.spinner.view())
+      return `${activity} Verifying results`
+    }
+    if (this.snapshot.phase === 'idle') {
+      if (this.result) return `Completed · ${formatPeers(this.result.peers.length)}`
+
+      const available = this.snapshot.peers.filter((peer) => peer.available).length
+      if (available) return formatPeers(available)
+
+      const activity = style().foreground(DOWNLOAD).render(this.spinner.view())
+      return `${activity} Finding peers`
+    }
+    const upload = this.snapshot.phase === 'upload'
+    const remaining = Math.max(0, Math.ceil((DURATION - this.snapshot.elapsed) / 1000))
+    const direction = style()
+      .foreground(upload ? UPLOAD : DOWNLOAD)
+      .render(upload ? '↑ Upload' : '↓ Download')
+    return `${direction} · ${remaining}s remaining`
+  }
+
+  _resultView() {
+    const label = style().render('TOTAL')
+    const labelWidth = 7
+    let downloadSpeed
+    let uploadSpeed
+    if (this.result) {
+      downloadSpeed = this.result.downloadSpeed
+      uploadSpeed = this.result.uploadSpeed
+    } else {
+      const downloadElapsed = downloadSeconds(this.snapshot.elapsed)
+      const download = this.snapshot.peers.reduce((total, peer) => total + peer.downloaded, 0)
+      downloadSpeed = download / downloadElapsed
+      uploadSpeed = this.snapshot.peers.reduce((total, peer) => total + peer.uploadSpeed, 0)
+    }
+
+    const downloadView = style()
+      .bold(true)
+      .foreground(DOWNLOAD)
+      .render(`↓ ${formatSpeed(downloadSpeed)}`)
+    const uploadView = style()
+      .bold(true)
+      .foreground(UPLOAD)
+      .render(`↑ ${formatSpeed(uploadSpeed)}`)
+    const downloadMB = style().foreground('gray').render(formatSpeedMB(downloadSpeed))
+    const uploadMB = style().foreground('gray').render(formatSpeedMB(uploadSpeed))
+    const line1 = `${label}  ${downloadView}  ${uploadView}`
+    const line2 = `${' '.repeat(labelWidth + 2)}${downloadMB}    ${uploadMB}`
+    return `${line1}\n${line2}`
+  }
+
+  _actions() {
+    if (this.snapshot.phase === 'idle') {
+      const available = this.snapshot.peers.some((peer) => peer.available)
+      if (available) return this._startAction('→ Press [ENTER] to test', this.result ? 2 : 6)
+    }
+    return ''
+  }
+
+  _footer() {
+    const label = style().foreground('white').render('Whoami:')
+    const address = this.snapshot.publicIP || this.servingSpinner.view()
+    const addressWidth = style.width(address)
+    const value = style()
+      .foreground('gray')
+      .width(addressWidth > WHOAMI_VALUE_WIDTH ? addressWidth + 4 : WHOAMI_VALUE_WIDTH)
+      .render(address)
+    const overflowing =
+      this.peerTable.rows.length > this.peerTable.height ||
+      this.serverLogTable.rows.length > this.serverLogTable.height
+    const scrollControls = overflowing
+      ? `      ${style().faint(true).render('[↑/↓] Scroll')}      ${style().foreground('white').render('[tab]')} ${style().foreground('gray').render('Switch table')}`
+      : ''
+    const footer = `${label} ${value}${scrollControls}`
+    return style.width(footer) + 2 <= this.screenWidth ? footer : `${scrollControls}`
+  }
+
+  _tableTitle(label, table, selected, showDown = true) {
+    const up = table.offset > 0 ? '↑' : ''
+    const down = showDown && table.offset + table.height < table.rows.length ? '↓' : ''
+    return `${selected ? '›' : ' '}${up}${down}${label}`
+  }
+
+  _serverLogTableView() {
+    const lines = this.serverLogTable.view().split('\n')
+    if (this.serverLogTable.offset + this.serverLogTable.height < this.serverLogTable.rows.length) {
+      const last = lines.length - 1
+      lines[last] = style.truncate(`↓${lines[last]}`, this.serverLogTable.totalWidth)
+    }
+    return lines.join('\n')
+  }
+
+  _startAction(label, ticks = 6) {
+    const color = this.spinner.tag % (ticks * 2) < ticks ? '#FFD54F' : '#FFB74D'
+    return style().foreground(color).render(label)
+  }
+}
+
+async function runTui(speedTest, lobby) {
+  const model = new PeerModel(speedTest, lobby)
+  const program = new Program(model, { altScreen: true })
+  model._resize(program.output.columns || 80, program.output.rows || 24)
+  const onupdate = (snapshot) => program.send({ type: 'state', snapshot })
+  const onserved = (entry) => program.send({ type: 'served', entry })
+  speedTest.on('update', onupdate)
+  speedTest.on('served', onserved)
+
+  try {
+    await program.run()
+  } finally {
+    speedTest.removeListener('update', onupdate)
+    speedTest.removeListener('served', onserved)
+    await speedTest.close()
+  }
+
+  program.output.write(finalView(model))
+}
+
+function finalView(model) {
+  const progress = model.result ? 1 : model.snapshot.elapsed / DURATION
+  const resultViewLines = model
+    ._resultView()
+    .split('\n')
+    .map((line) => `  ${line}`)
+  return `\x1b[H\x1b[2J\n  ${model._phase()}\n  ${model.bar.view(progress)}\n${resultViewLines.join('\n')}\n\n`
+}
+
+function setTableRows(table, rows, maxHeight) {
+  table.height = Math.min(rows.length, maxHeight)
+  table.setRows(rows)
+  table.offset = Math.min(table.offset, Math.max(0, rows.length - table.height))
+  table.cursor = -1
+}
+
+function downloadSeconds(elapsed) {
+  return Math.max(Math.min(elapsed, PHASE_DURATION) / 1000, 0.1)
+}
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp)
+  const values = [
+    date.getFullYear(),
+    date.getMonth() + 1,
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds()
+  ].map((value) => String(value).padStart(2, '0'))
+  return `${values.slice(0, 3).join('-')} ${values.slice(3).join(':')}`
+}
+
+function formatLobby(value) {
+  const safe = Array.from(value)
+    .filter((char) => {
+      const code = char.codePointAt(0)
+      return code >= 32 && code !== 127 && (code < 128 || code > 159)
+    })
+    .slice(0, 48)
+    .join('')
+  return safe || 'PRIVATE'
+}
+
+function formatSpeed(bytesPerSecond) {
+  return formatRate(bytesPerSecond, 8, 'Mbps')
+}
+
+function formatSpeedMB(bytesPerSecond) {
+  return formatRate(bytesPerSecond, 1, 'MB/s')
+}
+
+function formatRate(bytesPerSecond, multiplier, unit) {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return '  -'
+  const rate = (bytesPerSecond * multiplier) / 1e6
+  if (rate >= 1) return `${String(Math.floor(rate)).padStart(3)} ${unit}`
+  return `${Math.max(Math.floor(rate * 10) / 10, 0.1)
+    .toFixed(1)
+    .padStart(3)} ${unit}`
+}
+
+function formatLatency(ms) {
+  return ms > 0 ? `${ms} ms` : '—'
+}
+
+function formatAddress(peer, styled = true) {
+  const port = Number.isSafeInteger(peer.port) && peer.port > 0 ? `:${peer.port}` : ''
+  if (!styled) return peer.ip + port
+  const host = style()
+    .foreground(peer.failed ? 'red' : 'white')
+    .render(peer.ip)
+  return host + style().foreground('gray').render(port)
+}
+
+function formatPeers(peers) {
+  return `${peers} ${peers === 1 ? 'peer' : 'peers'}`
+}
+
+module.exports.PeerModel = PeerModel
+module.exports.finalView = finalView

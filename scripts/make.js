@@ -1,0 +1,49 @@
+#!/usr/bin/env bare
+
+'use strict'
+
+const env = require('bare-env')
+const os = require('bare-os')
+const { spawn } = require('bare-subprocess')
+
+const host = env.HOST || `${os.platform()}-${os.arch()}`
+const supported = [
+  'darwin-arm64',
+  'darwin-x64',
+  'linux-arm64',
+  'linux-x64',
+  'win32-arm64',
+  'win32-x64'
+]
+
+if (!supported.includes(host)) {
+  console.error(`Unsupported host: ${host}`)
+  Bare.exitCode = 1
+} else {
+  const child = spawn(
+    'bare-build',
+    [
+      '--name',
+      'speedtest-p2p',
+      '--standalone',
+      '--host',
+      host,
+      '--out',
+      `./out/${host}`,
+      'bin.mjs'
+    ],
+    { stdio: 'inherit' }
+  )
+  child.on('error', (err) => {
+    console.error(err)
+    Bare.exitCode = 1
+  })
+  child.on('exit', (code, signal) => {
+    Bare.exitCode = signal ? 1 : code
+    if (Bare.exitCode === 0) {
+      const binary =
+        host === 'win32-arm64' || host === 'win32-x64' ? 'speedtest-p2p.exe' : 'speedtest-p2p'
+      console.log(`Target: ./out/${host}/${binary}`)
+    }
+  })
+}
