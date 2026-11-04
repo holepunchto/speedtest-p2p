@@ -8,7 +8,7 @@ Pear TUI app for testing peer-to-peer network speeds, powered by [Hyperswarm](ht
 
 > [!WARNING]
 > Pear Labs projects are built by members of the Pear and Platform team, often outside of regular feature work, to explore ideas and show what's possible on the platform. They have been given a light review and are considered trustworthy to install and run, but they do not carry the guarantees of our first-class software.
-There is no commitment to maintenance, backwards compatibility, security response times, or long-term availability, and they should not be relied on for anything critical. Use them to learn, test, and have fun - and please send feedback, but treat them as experiments rather than products.
+> There is no commitment to maintenance, backwards compatibility, security response times, or long-term availability, and they should not be relied on for anything critical. Use them to learn, test, and have fun - and please send feedback, but treat them as experiments rather than products.
 
 ## P2P Architecture
 

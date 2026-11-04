@@ -1,6 +1,6 @@
 {
   "name": "speedtest-p2p",
-  "version": "0.10.0",
+  "version": "0.1.0",
   "description": "Pear TUI app for testing peer-to-peer network speeds",
   "bin": "bin.mjs",
   "upgrade": "pear://<YOUR_KEY_HERE>",
