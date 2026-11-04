@@ -4,6 +4,12 @@ Pear TUI app for testing peer-to-peer network speeds, powered by [Hyperswarm](ht
 
 <img width="799" height="412" alt="image" src="https://github.com/user-attachments/assets/ef6ec733-fbc8-4286-bc1d-fcdd60aca3e7" />
 
+## ⚗️ Pear Labs - experimental
+
+> [!WARNING]
+> Pear Labs projects are built by members of the Pear and Platform team, often outside of regular feature work, to explore ideas and show what's possible on the platform. They have been given a light review and are considered trustworthy to install and run, but they do not carry the guarantees of our first-class software.
+There is no commitment to maintenance, backwards compatibility, security response times, or long-term availability, and they should not be relied on for anything critical. Use them to learn, test, and have fun - and please send feedback, but treat them as experiments rather than products.
+
 ## P2P Architecture
 
 There is no central speed-test server. Every `speedtest-p2p` instance joins the same 32-byte Hyperswarm topic as both a client and a server. The DHT handles discovery and NAT hole punching, then peers exchange test traffic among all online peers at the same time in order to saturate your bandwidth and determine the maximum download/upload limits of your Internet connection.
