@@ -2,7 +2,7 @@
 
 Pear TUI app for testing peer-to-peer network speeds, powered by [Hyperswarm](https://github.com/holepunchto/hyperswarm) and [Bare](https://github.com/holepunchto/bare).
 
-<img width="799" height="412" alt="image" src="https://github.com/user-attachments/assets/ef6ec733-fbc8-4286-bc1d-fcdd60aca3e7" />
+<img width="858" height="371" alt="screenshot" src="https://github.com/user-attachments/assets/2f977e80-a33a-45e0-bda5-0896f054bd1f" />
 
 ## ⚗️ Pear Labs - experimental
 
