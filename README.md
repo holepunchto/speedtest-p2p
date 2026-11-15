@@ -54,6 +54,12 @@ bare index.js
 | `--version`, `-v`      | Show the version                       |
 | `--help`, `-h`         | Show help                              |
 
+## Running under pm2
+
+```console
+$ pm2 start speedtest-p2p
+```
+
 ## Tests
 
 ```sh

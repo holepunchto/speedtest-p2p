@@ -1,6 +1,6 @@
 'use strict'
 
-const tty = require('bare-tty')
+const process = require('bare-process')
 const { Program, key, progress, quit, spinner, style, table } = require('bare-tui')
 
 const Peer = require('../lib/peer')
@@ -21,10 +21,6 @@ module.exports = async function run(cmd) {
   if (cmd.flags.version) {
     console.log(pkg.version)
     return
-  }
-
-  if (!tty.isTTY(0) || !tty.isTTY(1)) {
-    throw new Error('speedtest-p2p requires an interactive terminal')
   }
 
   const lobby = cmd.flags.lobby
@@ -443,7 +439,10 @@ class PeerModel {
 
 async function runTui(speedTest, lobby) {
   const model = new PeerModel(speedTest, lobby)
-  const program = new Program(model, { altScreen: true })
+  const program = new Program(model, {
+    altScreen: true,
+    output: process.stdout.isTTY ? process.stdout : { write() {} }
+  })
   model._resize(program.output.columns || 80, program.output.rows || 24)
   const onupdate = (snapshot) => program.send({ type: 'state', snapshot })
   const onserved = (entry) => program.send({ type: 'served', entry })
