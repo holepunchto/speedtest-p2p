@@ -59,7 +59,8 @@ bare index.js
 Run as a background service with [pm2](https://github.com/Unitech/pm2):
 
 ```console
-$ pm2 start speedtest-p2p
+$ npm run make
+$ pm2 start ./out/{PLATFORM}/speedtest-p2p
 ```
 
 ## Tests
