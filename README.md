@@ -54,6 +54,15 @@ bare index.js
 | `--version`, `-v`      | Show the version                       |
 | `--help`, `-h`         | Show help                              |
 
+## Running under pm2
+
+Run as a background service with [pm2](https://github.com/Unitech/pm2):
+
+```console
+$ npm run make
+$ pm2 start ./out/{PLATFORM}/speedtest-p2p
+```
+
 ## Tests
 
 ```sh
