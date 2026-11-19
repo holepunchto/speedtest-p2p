@@ -60,7 +60,7 @@ Run as a background service with [pm2](https://github.com/Unitech/pm2):
 
 ```console
 $ npm run make
-$ pm2 start ./out/{PLATFORM}/speedtest-p2p
+$ pm2 start ./out/make/speedtest-p2p
 ```
 
 ## Tests
@@ -82,7 +82,7 @@ npm test
 npm run make
 ```
 
-Standalone builds are written to `out/<platform>-<arch>/speedtest-p2p`.
+Standalone builds are written to `out/make/speedtest-p2p`.
 
 ## Supported platforms
 
