@@ -23,7 +23,16 @@ if (!supportedHosts.has(host)) {
 }
 
 const isWindows = process.platform === 'win32'
-const buildArgs = ['--name', 'speedtest-p2p', '--standalone', '--host', host, '--out', './out/make', 'bin.mjs']
+const buildArgs = [
+  '--name',
+  'speedtest-p2p',
+  '--standalone',
+  '--host',
+  host,
+  '--out',
+  './out/make',
+  'bin.mjs'
+]
 
 const res = isWindows
   ? spawnSync('bare-build', buildArgs, { stdio: 'inherit', shell: true })
