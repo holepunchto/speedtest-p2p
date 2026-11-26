@@ -11,6 +11,7 @@
     "cmd",
     "workers",
     "scripts",
+    "targets",
     "lib"
   ],
   "main": "index.js",
@@ -19,13 +20,9 @@
     "lint": "prettier --check . && lunte",
     "test": "bare test/index.js",
     "start": "bare bin.mjs --no-updates",
-    "make": "bare scripts/make.js",
-    "make:darwin-arm64": "bare-build --name speedtest-p2p --standalone --host darwin-arm64 --out ./out/darwin-arm64 bin.mjs",
-    "make:darwin-x64": "bare-build --name speedtest-p2p --standalone --host darwin-x64 --out ./out/darwin-x64 bin.mjs",
-    "make:linux-arm64": "bare-build --name speedtest-p2p --standalone --host linux-arm64 --out ./out/linux-arm64 bin.mjs",
-    "make:linux-x64": "bare-build --name speedtest-p2p --standalone --host linux-x64 --out ./out/linux-x64 bin.mjs",
-    "make:win32-arm64": "bare-build --name speedtest-p2p --standalone --host win32-arm64 --out ./out/win32-arm64 bin.mjs",
-    "make:win32-x64": "bare-build --name speedtest-p2p --standalone --host win32-x64 --out ./out/win32-x64 bin.mjs"
+    "make": "node scripts/make.js",
+    "make:stage": "CHANNEL=stage node scripts/make.js",
+    "make:dev": "CHANNEL=dev node scripts/make.js"
   },
   "dependencies": {
     "b4a": "^1.8.1",
@@ -51,7 +48,6 @@
   "devDependencies": {
     "bare-build": "^1.0.4",
     "bare-runtime": "^1.31.0",
-    "bare-subprocess": "^6.1.0",
     "brittle": "^4.1.0",
     "hyperdht": "^6.21.0",
     "lunte": "^1.8.4",
