@@ -1,11 +1,11 @@
 {
   "multisig": {
     "publicKeys": [
-        "6r66j69bjqfns5ims4z6c4b48c6a863mtuxqy5xmq6y6a9x3uiiy",
-        "u89ir485kwi9t3r6w1wcwm7y5k4k4j5u9y9kaafz1d5spbxzypro",
-        "8pkpfikwx33qdsopkkyw9mzxxjmgk8188ciwz5qpdozuwx8du1eo",
-        "4idukhkas1sy6md8bmmkad48m7pcmmfhifd48umsxszhx37r9zho",
-        "3sct8sybw814sj3mwe1xmzf84rb184mam1ketaakrt4ajmfxph3y"
+      "6r66j69bjqfns5ims4z6c4b48c6a863mtuxqy5xmq6y6a9x3uiiy",
+      "u89ir485kwi9t3r6w1wcwm7y5k4k4j5u9y9kaafz1d5spbxzypro",
+      "8pkpfikwx33qdsopkkyw9mzxxjmgk8188ciwz5qpdozuwx8du1eo",
+      "4idukhkas1sy6md8bmmkad48m7pcmmfhifd48umsxszhx37r9zho",
+      "3sct8sybw814sj3mwe1xmzf84rb184mam1ketaakrt4ajmfxph3y"
     ],
     "namespace": "holepunchto/speedtest-p2p",
     "quorum": 3
