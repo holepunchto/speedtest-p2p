@@ -79,10 +79,12 @@ npm test
 ## Standalone builds
 
 ```sh
-npm run make
+npm run make        # production channel
+npm run make:stage
+npm run make:dev
 ```
 
-Standalone builds are written to `out/make/speedtest-p2p`.
+Standalone builds are written to `out/make/speedtest-p2p` (`speedtest-p2p.exe` on Windows). Set `HOST` to cross-build for another target (e.g. `HOST=win32-arm64`).
 
 ## Supported platforms
 
