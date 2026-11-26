@@ -4,6 +4,12 @@ Pear TUI app for testing peer-to-peer network speeds, powered by [Hyperswarm](ht
 
 <img width="858" height="371" alt="screenshot" src="https://github.com/user-attachments/assets/2f977e80-a33a-45e0-bda5-0896f054bd1f" />
 
+## Install
+
+```
+curl https://install.pears.com/pear.sh | sh && pear install pear://gxznazu98do8tnd438cfswqa61r86afb9mzcn1c9runc4f687ipo
+```
+
 ## ⚗️ Pear Labs - experimental
 
 > [!WARNING]
