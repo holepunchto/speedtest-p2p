@@ -26,6 +26,10 @@ pear install pear://gxznazu98do8tnd438cfswqa61r86afb9mzcn1c9runc4f687ipo
 
 ### Windows (PowerShell)
 
+```
+irm https://install.pears.com/pear.ps1 | iex; if ($?) { pear install pear://gipjk71nbuj3zasm4ywczb93zqk5xbfup16c6d5j8w8yeja4ob6o }
+```
+
 #### Install Pear
 
 ```
