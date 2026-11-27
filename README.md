@@ -6,20 +6,37 @@ Pear TUI app for testing peer-to-peer network speeds, powered by [Hyperswarm](ht
 
 ## Install Pear + Speedtest-P2P
 
-**curl** (macOS/Linux)
+### macOS/Linux
 
 ```
 curl https://install.pears.com/pear.sh | sh && pear install pear://gxznazu98do8tnd438cfswqa61r86afb9mzcn1c9runc4f687ipo
 ```
 
-**irm** (Windows PowerShell) — same thing, for Windows:
+#### Install Pear
 
-```powershell
-irm https://install.pears.com/pear.ps1 | iex && pear install pear://gxznazu98do8tnd438cfswqa61r86afb9mzcn1c9runc4f687ipo
+```
+curl https://install.pears.com/pear.sh
 ```
 
-## Install
+#### Install Speedtest-P2P
 
+```
+pear install pear://gxznazu98do8tnd438cfswqa61r86afb9mzcn1c9runc4f687ipo
+```
+
+### Windows (PowerShell)
+
+#### Install Pear
+
+```
+irm https://install.pears.com/pear.ps1 | iex
+```
+
+#### Install Speedtest-P2P
+
+```
+pear install pear://gxznazu98do8tnd438cfswqa61r86afb9mzcn1c9runc4f687ipo
+```
 
 ## ⚗️ Pear Labs - experimental
 
